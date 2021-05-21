@@ -1,8 +1,9 @@
 use actix_web::{get, rt, App, HttpResponse, HttpServer, Responder};
 use anyhow::Result;
 use std::{sync::Arc, thread, time};
+use tokio::runtime::Handle;
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() -> Result<()> {
     let panel = ControlPanel::new("127.0.0.1:8080");
     panel.start()?;
@@ -25,7 +26,12 @@ impl ControlPanel {
     }
 
     fn start(self: Arc<Self>) -> std::io::Result<()> {
+        dbg!(&"BEFORE");
+        let handle = Handle::current();
         thread::spawn(move || {
+            let _ = handle.enter();
+
+            dbg!(&"WTF");
             let _ = self.start_server();
         });
 
@@ -34,15 +40,22 @@ impl ControlPanel {
 
     fn start_server(&self) -> std::io::Result<()> {
         let system = rt::System::new();
+        let local = tokio::task::LocalSet::new();
 
-        let server = HttpServer::new(|| App::new().service(health))
-            .bind(&self.address)
-            .expect("fix it")
-            .shutdown_timeout(3)
-            .workers(1)
-            .run();
+        let address = self.address.clone();
 
-        system.block_on(server)
+        local.spawn_local(async move {
+            HttpServer::new(|| App::new().service(health))
+                .bind(&address)
+                .expect("fix it")
+                .shutdown_timeout(3)
+                .workers(1)
+                .run()
+        });
+
+        system.block_on(local);
+
+        Ok(())
     }
 }
 

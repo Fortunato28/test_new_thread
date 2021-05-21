@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0.38"
 
-tokio = { version = "1", features = ["macros", "time", "sync", "rt-multi-thread"] }
+tokio = { version = "1.6", features = ["macros", "time", "sync", "rt-multi-thread"] }
 
 actix-web = { version = "4.0.0-beta.6"}
+actix-server = "2.0.0-beta.5"
