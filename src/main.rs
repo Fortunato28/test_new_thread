@@ -26,12 +26,10 @@ impl ControlPanel {
     }
 
     fn start(self: Arc<Self>) -> std::io::Result<()> {
-        dbg!(&"BEFORE");
         let handle = Handle::current();
         thread::spawn(move || {
             let _ = handle.enter();
 
-            dbg!(&"WTF");
             let _ = self.start_server();
         });
 
