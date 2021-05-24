@@ -611,6 +611,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0382880606dff6d15c9476c416d18690b72742aa7b605bb6dd6ec9030fbf07eb"
 dependencies = [
  "scopeguard",
+ "serde",
 ]
 
 [[package]]
@@ -1073,6 +1074,7 @@ dependencies = [
  "actix-server",
  "actix-web",
  "anyhow",
+ "parking_lot",
  "tokio",
 ]
 

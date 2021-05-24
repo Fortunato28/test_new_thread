@@ -13,3 +13,6 @@ tokio = { version = "1.6", features = ["macros", "time", "sync", "rt-multi-threa
 
 actix-web = { version = "4.0.0-beta.6"}
 actix-server = "2.0.0-beta.5"
+
+parking_lot = { version = "0.11", features = ["serde"] }
+
