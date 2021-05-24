@@ -2,7 +2,7 @@ use actix_web::{dev::Server, get, rt, App, HttpResponse, HttpServer, Responder};
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
 use std::{sync::Arc, thread, time};
-use tokio::{sync::oneshot, task};
+use tokio::sync::oneshot;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -13,7 +13,8 @@ async fn main() -> Result<()> {
     thread::sleep(time::Duration::from_secs(10));
 
     let mut rx = panel.graceful_shutdown().ok_or(anyhow!("No receiver"))?;
-    let _ = rx.try_recv();
+    let received = rx.try_recv();
+    dbg!(&received);
 
     Ok(())
 }
@@ -41,15 +42,25 @@ impl ControlPanel {
         Ok(())
     }
 
-    async fn stop(self: Arc<Self>) {
+    fn stop(self: Arc<Self>) {
         let (tx, rx) = oneshot::channel();
         (*self.work_finished_receiver.lock()) = Some(rx);
 
-        let maybe_server = self.server.lock();
-        if let Some(server) = &(*maybe_server) {
-            server.stop(true).await;
-            let _ = tx.send(Ok(()));
-        }
+        let cloned_self = self.clone();
+        let runtime_handler = tokio::runtime::Handle::current();
+        // FIXME can it die before main thread?
+        let thread_result = thread::spawn(move || {
+            let maybe_server = cloned_self.server.lock();
+            if let Some(server) = &(*maybe_server) {
+                runtime_handler.block_on(async {
+                    server.stop(true).await;
+
+                    let _ = tx.send(Ok(()));
+                })
+            }
+        });
+
+        //dbg!(&thread_result.join());
     }
 
     fn start_server(self: Arc<Self>) -> std::io::Result<()> {
@@ -86,10 +97,7 @@ impl Service for ControlPanel {
     }
 
     fn graceful_shutdown(self: Arc<Self>) -> Option<oneshot::Receiver<Result<()>>> {
-        let cloned_self = self.clone();
-
-        let local = task::LocalSet::new();
-        task::spawn_local(async move { cloned_self.stop() });
+        self.clone().stop();
 
         let work_finished_receiver = self.work_finished_receiver.lock().take();
         if work_finished_receiver.is_none() {
@@ -98,9 +106,6 @@ impl Service for ControlPanel {
                 self.name()
             );
         }
-
-        //tokio::spawn(self.stop());
-        //self.stop();
 
         work_finished_receiver
     }
